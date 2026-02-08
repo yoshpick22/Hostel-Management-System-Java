@@ -1,6 +1,6 @@
-Import javax.swing.*;
+import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.io.*;
 import java.util.ArrayList;
 
 public class HostelManagementSystem extends JFrame {
@@ -8,14 +8,14 @@ public class HostelManagementSystem extends JFrame {
     JPanel mainPanel;
     JTextField usernameField, nameField, roomField;
     JPasswordField passwordField;
-    JTextArea studentArea;
     JLabel welcomeLabel;
-
-    ArrayList studentList = new ArrayList();
+    ArrayList<String> studentList = new ArrayList<>();
+    private final String FILE_NAME = "hostel_records.txt"; // Permanent storage file
 
     public HostelManagementSystem() {
-        setTitle("Hostel Management System");
-        setSize(600, 450);
+        loadDataFromFile(); // Automatically loads students when app starts
+        setTitle("Official School Hostel System - NK Digital Services");
+        setSize(650, 500);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -27,35 +27,136 @@ public class HostelManagementSystem extends JFrame {
 
         add(mainPanel);
         cardLayout.show(mainPanel, "Login");
-
         setVisible(true);
     }
 
-    // 🔐 Login Panel
     private JPanel loginPanel() {
         JPanel panel = new JPanel(null);
-        panel.setBackground(new Color(255, 241, 210));
+        panel.setBackground(new Color(240, 245, 250));
 
-        JLabel title = new JLabel("Hostel Login", SwingConstants.CENTER);
-        title.setFont(new Font("Arial", Font.BOLD, 24));
-        title.setBounds(180, 30, 240, 30);
+        JLabel title = new JLabel("School Admin Portal", SwingConstants.CENTER);
+        title.setFont(new Font("Serif", Font.BOLD, 26));
+        title.setBounds(175, 40, 300, 40);
         panel.add(title);
 
-        JLabel userLabel = new JLabel("Username:");
-        userLabel.setBounds(120, 100, 100, 25);
-        panel.add(userLabel);
-
         usernameField = new JTextField();
-        usernameField.setBounds(220, 100, 200, 25);
+        usernameField.setBounds(250, 120, 200, 30);
+        panel.add(new JLabel("Username:")).setBounds(150, 120, 100, 30);
         panel.add(usernameField);
 
-        JLabel passLabel = new JLabel("Password:");
-        passLabel.setBounds(120, 140, 100, 25);
-        panel.add(passLabel);
-
         passwordField = new JPasswordField();
-        passwordField.setBounds(220, 140, 200, 25);
+        passwordField.setBounds(250, 170, 200, 30);
+        panel.add(new JLabel("Password:")).setBounds(150, 170, 100, 30);
         panel.add(passwordField);
+
+        JButton loginBtn = new JButton("Secure Login");
+        loginBtn.setBounds(250, 230, 150, 40);
+        loginBtn.setBackground(new Color(50, 100, 150));
+        loginBtn.setForeground(Color.WHITE);
+        loginBtn.addActionListener(e -> {
+            if (usernameField.getText().equals("admin") && new String(passwordField.getPassword()).equals("1234")) {
+                welcomeLabel.setText("Authorized Access: Admin");
+                cardLayout.show(mainPanel, "Dashboard");
+            } else {
+                JOptionPane.showMessageDialog(this, "Unauthorized: Invalid Login", "Security Alert", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        panel.add(loginBtn);
+        return panel;
+    }
+
+    private JPanel dashboardPanel() {
+        JPanel panel = new JPanel(null);
+        panel.setBackground(new Color(235, 255, 240));
+
+        welcomeLabel = new JLabel("Management Dashboard", SwingConstants.CENTER);
+        welcomeLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
+        welcomeLabel.setBounds(125, 20, 400, 30);
+        panel.add(welcomeLabel);
+
+        String[] actions = {"Register New Student", "View Student Directory", "Search for Student", "Logout System"};
+        for (int i = 0; i < actions.length; i++) {
+            JButton btn = new JButton(actions[i]);
+            btn.setBounds(175, 80 + (i * 70), 300, 50);
+            final String act = actions[i];
+            btn.addActionListener(e -> {
+                if (act.contains("Register")) registerStudent();
+                else if (act.contains("View")) viewStudents();
+                else if (act.contains("Search")) searchStudent();
+                else {
+                    usernameField.setText("");
+                    passwordField.setText("");
+                    cardLayout.show(mainPanel, "Login");
+                }
+            });
+            panel.add(btn);
+        }
+        return panel;
+    }
+
+    private void registerStudent() {
+        nameField = new JTextField();
+        roomField = new JTextField();
+        Object[] fields = {"Student Full Name:", nameField, "Assigned Room No:", roomField};
+        int option = JOptionPane.showConfirmDialog(this, fields, "New Student Entry", JOptionPane.OK_CANCEL_OPTION);
+        
+        if (option == JOptionPane.OK_OPTION) {
+            String name = nameField.getText().trim();
+            String room = roomField.getText().trim();
+            if (!name.isEmpty() && !room.isEmpty()) {
+                studentList.add(name + " | Room: " + room);
+                saveDataToFile(); // Automatically saves to file
+                JOptionPane.showMessageDialog(this, "Success: Student record saved.");
+            } else {
+                JOptionPane.showMessageDialog(this, "Error: All fields are required.");
+            }
+        }
+    }
+
+    private void viewStudents() {
+        StringBuilder sb = new StringBuilder("--- Current School Hostel Records ---\n\n");
+        if (studentList.isEmpty()) sb.append("No records found.");
+        else for (String s : studentList) sb.append("✔ ").append(s).append("\n");
+        
+        JTextArea area = new JTextArea(sb.toString());
+        area.setEditable(false);
+        JOptionPane.showMessageDialog(this, new JScrollPane(area), "Student Directory", JOptionPane.PLAIN_MESSAGE);
+    }
+
+    private void searchStudent() {
+        String query = JOptionPane.showInputDialog(this, "Enter Student Name to Search:");
+        if (query != null && !query.trim().isEmpty()) {
+            boolean found = false;
+            for (String s : studentList) {
+                if (s.toLowerCase().contains(query.toLowerCase())) {
+                    JOptionPane.showMessageDialog(this, "Record Found:\n" + s, "Search Result", JOptionPane.INFORMATION_MESSAGE);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) JOptionPane.showMessageDialog(this, "No record for '" + query + "'", "Search Result", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private void saveDataToFile() {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(FILE_NAME))) {
+            for (String s : studentList) pw.println(s);
+        } catch (IOException e) { e.printStackTrace(); }
+    }
+
+    private void loadDataFromFile() {
+        File file = new File(FILE_NAME);
+        if (!file.exists()) return;
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) studentList.add(line);
+        } catch (IOException e) { e.printStackTrace(); }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(HostelManagementSystem::new);
+    }
+}
 
         JButton okBtn = new JButton("OK");
         okBtn.setBounds(220, 200, 100, 30);
